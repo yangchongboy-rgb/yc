@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>命运占卜坊</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: rgba(15, 52, 96, 0.9);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 { color: #e94560; margin-top: 0; font-size: 1.8rem; }
+        p { font-size: 1.1rem; color: #c4d4e3; }
+        input[type="date"] {
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin: 20px 0;
+            width: 85%;
+            text-align: center;
+        }
+        .btn {
+            background-color: #e94560;
+            color: #ffffff;
+            padding: 12px 28px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover { background-color: #0f3460; }
+        #result {
+            margin-top: 25px;
+            background: rgba(26, 26, 46, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            color: #ffd369;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 id="pageTitle">加载中...</h1>
+        <p id="promptText"></p>
+        <input type="date" id="birthDate">
+        <br>
+        <button class="btn" id="calcBtn" onclick="calculateFortune()">...</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 6国语言数据字典，包含页面文字和12星座名称
+        const i18n = {
+            zh: { title: "命运占卜坊", prompt: "请选择你的出生日期", btn: "开始测算", warning: "请先选择日期！", fortune: "近期你的洞察力将十分敏锐，积蓄的能量会在接下来的几周内为你带来意想不到的突破与好运。", signs: ["水瓶座", "双鱼座", "白羊座", "金牛座", "双子座", "巨蟹座", "狮子座", "处女座", "天秤座", "天蝎座", "射手座", "摩羯座"] },
+            en: { title: "Destiny Horoscope", prompt: "Select your birth date", btn: "Calculate", warning: "Please select a date!", fortune: "Your intuition is very sharp lately. The energy you've been storing will bring unexpected breakthroughs and good luck in the coming weeks.", signs: ["Aquarius", "Pisces", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn"] },
+            fr: { title: "Horoscope du Destin", prompt: "Sélectionnez votre date de naissance", btn: "Calculer", warning: "Veuillez sélectionner une date !", fortune: "Votre intuition est très aiguisée ces temps-ci. L'énergie que vous avez emmagasinée vous apportera des percées inattendues et de la chance dans les semaines à venir.", signs: ["Verseau", "Poissons", "Bélier", "Taureau", "Gémeaux", "Cancer", "Lion", "Vierge", "Balance", "Scorpion", "Sagittaire", "Capricorne"] },
+            es: { title: "Horóscopo del Destino", prompt: "Selecciona tu fecha de nacimiento", btn: "Calcular", warning: "¡Por favor selecciona una fecha!", fortune: "Últimamente tu intuición es muy aguda. La energía que has estado acumulando te traerá avances inesperados y buena suerte en las próximas semanas.", signs: ["Acuario", "Piscis", "Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio", "Sagitario", "Capricornio"] },
+            ja: { title: "運命の占い", prompt: "生年月日を選択してください", btn: "占う", warning: "日付を選択してください！", fortune: "最近、あなたの直感は非常に鋭くなっています。蓄積されたエネルギーは、今後数週間で予期せぬ突破口と幸運をもたらすでしょう。", signs: ["水瓶座", "魚座", "牡羊座", "牡牛座", "双子座", "蟹座", "獅子座", "乙女座", "天秤座", "蠍座", "射手座", "山羊座"] },
+            ko: { title: "운명의 운세", prompt: "생년월일을 선택하세요", btn: "결과 보기", warning: "날짜를 선택해주세요!", fortune: "최근 당신의 직관력이 매우 날카로워졌습니다. 그동안 축적된 에너지가 앞으로 몇 주 안에 예상치 못한 돌파구와 행운을 가져다줄 것입니다.", signs: ["물병자리", "물고기자리", "양자리", "황소자리", "쌍둥이자리", "게자리", "사자자리", "처녀자리", "천칭자리", "전갈자리", "사수자리", "염소자리"] }
+        };
+
+        // 安全地获取并处理浏览器语言
+        const rawLang = navigator.language || navigator.userLanguage || "en";
+        let langCode = rawLang.substring(0, 2).toLowerCase();
+        
+        // 如果语言不在字典中，默认降级为英文
+        if (!i18n[langCode]) {
+            langCode = "en";
+        }
+        
+        const t = i18n[langCode];
+
+        // 渲染页面界面语言
+        document.title = t.title;
+        document.getElementById("pageTitle").innerText = t.title;
+        document.getElementById("promptText").innerText = t.prompt;
+        document.getElementById("calcBtn").innerText = t.btn;
+
+        // 核心计算逻辑
+        function calculateFortune() {
+            const dateVal = document.getElementById("birthDate").value;
+            const resultDiv = document.getElementById("result");
+
+            if (!dateVal) {
+                resultDiv.style.display = "block";
+                resultDiv.innerHTML = t.warning;
+                return;
+            }
+
+            const date = new Date(dateVal);
+            const m = date.getMonth() + 1;
+            const d = date.getDate();
+
+            // 12星座日期分割点 (每月交界日)
+            const cutoffs = [20, 19, 21, 20, 21, 22, 23, 23, 23, 24, 23, 22];
+            let index = m - 1;
+            
+            // 如果出生日期小于当月分割点，则属于上一个星座
+            if (d < cutoffs[index]) {
+                index = (index === 0) ? 11 : index - 1;
+            }
+
+            const signName = t.signs[index];
+            
+            // 展示测算结果
+            resultDiv.style.display = "block";
+            resultDiv.innerHTML = `<strong>[ ${signName} ]</strong><br><br>${t.fortune}`;
+        }
+    </script>
+</body>
+</html>
